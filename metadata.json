@@ -1,0 +1,6 @@
+{
+  "name": "Strike Ops",
+  "description": "Jeu de tir FPS tactique multijoueur cross-platform avec Hub, Armurerie, Boutique, Passe de combat, Lobby et Scorestreaks en temps réel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

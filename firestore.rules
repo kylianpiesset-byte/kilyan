@@ -1,0 +1,280 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Shared Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validation Blueprints ---
+    function isValidPlayerProfile(data) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.callsign is string && data.callsign.size() >= 3 && data.callsign.size() <= 24 &&
+             data.level is int && data.level >= 1 && data.level <= 999 &&
+             data.xp is int && data.xp >= 0 &&
+             data.credits is int && data.credits >= 0 &&
+             data.strikePoints is int && data.strikePoints >= 0 &&
+             data.kills is int && data.kills >= 0 &&
+             data.deaths is int && data.deaths >= 0 &&
+             data.assists is int && data.assists >= 0 &&
+             data.wins is int && data.wins >= 0 &&
+             data.matchesPlayed is int && data.matchesPlayed >= 0 &&
+             data.scorestreaksCalled is int && data.scorestreaksCalled >= 0 &&
+             data.ownedItemIds is list && data.ownedItemIds.size() <= 100 &&
+             (data.ownedItemIds.size() == 0 || data.ownedItemIds[0] is string) &&
+             data.claimedPassTiers is list && data.claimedPassTiers.size() <= 50 &&
+             (data.claimedPassTiers.size() == 0 || data.claimedPassTiers[0] is int) &&
+             data.equippedPrimaryId is string && data.equippedPrimaryId.size() >= 1 && data.equippedPrimaryId.size() <= 64 &&
+             data.equippedPrimarySkinId is string && data.equippedPrimarySkinId.size() >= 1 && data.equippedPrimarySkinId.size() <= 64 &&
+             data.equippedOperatorSkinId is string && data.equippedOperatorSkinId.size() >= 1 && data.equippedOperatorSkinId.size() <= 64 &&
+             data.battlePassPremium is bool;
+    }
+
+    function isValidLobby(data) {
+      return data.hostId is string && isValidId(data.hostId) &&
+             data.lobbyCode is string && data.lobbyCode.size() == 6 && data.lobbyCode.matches('^[A-Z0-9]{6}$') &&
+             data.mode in ['tdm', 'domination'] &&
+             data.status in ['waiting', 'in_match', 'closed'] &&
+             data.activeMatchId is string && data.activeMatchId.size() <= 128 &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 10 &&
+             data.memberUids[0] is string &&
+             data.memberRoster is list && data.memberRoster.size() >= 1 && data.memberRoster.size() <= 10 &&
+             data.memberRoster[0] is string;
+    }
+
+    function isValidMatch(data) {
+      return data.hostId is string && isValidId(data.hostId) &&
+             data.mode in ['tdm', 'domination'] &&
+             data.status in ['active', 'finished'] &&
+             data.alphaScore is int && data.alphaScore >= 0 &&
+             data.bravoScore is int && data.bravoScore >= 0 &&
+             data.participantUids is list && data.participantUids.size() >= 1 && data.participantUids.size() <= 10 &&
+             data.participantUids[0] is string;
+    }
+
+    function isValidMatchPlayer(data) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.callsign is string && data.callsign.size() >= 3 && data.callsign.size() <= 24 &&
+             data.team in ['alpha', 'bravo'] &&
+             data.x is number && data.y is number && data.yaw is number &&
+             data.health is int && data.health >= 0 && data.health <= 100 &&
+             data.kills is int && data.kills >= 0 &&
+             data.deaths is int && data.deaths >= 0 &&
+             data.assists is int && data.assists >= 0 &&
+             data.killPoints is int && data.killPoints >= 0 &&
+             data.activeStreak is string && data.activeStreak.size() <= 32 &&
+             data.participantUids is list && data.participantUids.size() >= 1 && data.participantUids.size() <= 10 &&
+             data.participantUids[0] is string;
+    }
+
+    // --- Collection: /users/{userId} ---
+    match /users/{userId} {
+      allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'userId', 'callsign', 'level', 'xp', 'credits', 'strikePoints',
+                         'kills', 'deaths', 'assists', 'wins', 'matchesPlayed', 'scorestreaksCalled',
+                         'ownedItemIds', 'claimedPassTiers', 'equippedPrimaryId',
+                         'equippedPrimarySkinId', 'equippedOperatorSkinId', 'battlePassPremium',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'callsign', 'level', 'xp', 'credits', 'strikePoints',
+                         'kills', 'deaths', 'assists', 'wins', 'matchesPlayed', 'scorestreaksCalled',
+                         'ownedItemIds', 'claimedPassTiers', 'equippedPrimaryId',
+                         'equippedPrimarySkinId', 'equippedOperatorSkinId', 'battlePassPremium',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidPlayerProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidPlayerProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'callsign', 'level', 'xp', 'credits', 'strikePoints',
+                         'kills', 'deaths', 'assists', 'wins', 'matchesPlayed', 'scorestreaksCalled',
+                         'ownedItemIds', 'claimedPassTiers', 'equippedPrimaryId',
+                         'equippedPrimarySkinId', 'equippedOperatorSkinId', 'battlePassPremium',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // --- Collection: /lobbies/{lobbyId} ---
+    match /lobbies/{lobbyId} {
+      allow get: if isSignedIn() &&
+                    isValidId(lobbyId) &&
+                    (request.auth.uid in existing().memberUids || existing().status == 'waiting');
+
+      allow list: if isSignedIn() &&
+                     (request.auth.uid in resource.data.memberUids || resource.data.status == 'waiting');
+
+      allow create: if isSignedIn() &&
+                       isValidId(lobbyId) &&
+                       incoming().hostId == request.auth.uid &&
+                       request.auth.uid in incoming().memberUids &&
+                       incoming().status == 'waiting' &&
+                       incoming().keys().hasAll([
+                         'hostId', 'lobbyCode', 'mode', 'status', 'activeMatchId',
+                         'memberUids', 'memberRoster', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'hostId', 'lobbyCode', 'mode', 'status', 'activeMatchId',
+                         'memberUids', 'memberRoster', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidLobby(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(lobbyId) &&
+                       isValidLobby(incoming()) &&
+                       existing().status != 'closed' &&
+                       incoming().hostId == existing().hostId &&
+                       incoming().lobbyCode == existing().lobbyCode &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time && (
+                         // Action 1: Host updates mode, launches match, or closes lobby
+                         (
+                           request.auth.uid == existing().hostId &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'mode', 'status', 'activeMatchId', 'memberUids', 'memberRoster', 'updatedAt'
+                           ])
+                         ) ||
+                         // Action 2: Squad member joins, leaves, or toggles ready state while waiting
+                         (
+                           existing().status == 'waiting' &&
+                           (request.auth.uid in existing().memberUids || request.auth.uid in incoming().memberUids) &&
+                           incoming().mode == existing().mode &&
+                           incoming().status == existing().status &&
+                           incoming().activeMatchId == existing().activeMatchId &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'memberUids', 'memberRoster', 'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(lobbyId) && existing().hostId == request.auth.uid;
+    }
+
+    // --- Collection: /matches/{matchId} ---
+    match /matches/{matchId} {
+      allow get: if isSignedIn() &&
+                    isValidId(matchId) &&
+                    request.auth.uid in existing().participantUids;
+
+      allow list: if isSignedIn() &&
+                     request.auth.uid in resource.data.participantUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(matchId) &&
+                       incoming().hostId == request.auth.uid &&
+                       request.auth.uid in incoming().participantUids &&
+                       incoming().status == 'active' &&
+                       incoming().keys().hasAll([
+                         'hostId', 'mode', 'status', 'alphaScore', 'bravoScore',
+                         'participantUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'hostId', 'mode', 'status', 'alphaScore', 'bravoScore',
+                         'participantUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidMatch(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(matchId) &&
+                       isValidMatch(incoming()) &&
+                       existing().status == 'active' &&
+                       request.auth.uid in existing().participantUids &&
+                       incoming().hostId == existing().hostId &&
+                       incoming().mode == existing().mode &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'alphaScore', 'bravoScore', 'status', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(matchId) && existing().hostId == request.auth.uid;
+
+      // --- Subcollection: /matches/{matchId}/players/{playerId} ---
+      match /players/{playerId} {
+        allow get: if isSignedIn() &&
+                      isValidId(matchId) &&
+                      isValidId(playerId) &&
+                      request.auth.uid in existing().participantUids;
+
+        allow list: if isSignedIn() &&
+                       request.auth.uid in resource.data.participantUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(matchId) &&
+                         isValidId(playerId) &&
+                         request.auth.uid == playerId &&
+                         incoming().userId == request.auth.uid &&
+                         request.auth.uid in incoming().participantUids &&
+                         exists(/databases/$(database)/documents/matches/$(matchId)) &&
+                         request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.participantUids &&
+                         incoming().keys().hasAll([
+                           'userId', 'callsign', 'team', 'x', 'y', 'yaw', 'health',
+                           'kills', 'deaths', 'assists', 'killPoints', 'activeStreak',
+                           'participantUids', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'callsign', 'team', 'x', 'y', 'yaw', 'health',
+                           'kills', 'deaths', 'assists', 'killPoints', 'activeStreak',
+                           'participantUids', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidMatchPlayer(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(matchId) &&
+                         isValidId(playerId) &&
+                         isValidMatchPlayer(incoming()) &&
+                         request.auth.uid == playerId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().participantUids == existing().participantUids &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'callsign', 'team', 'x', 'y', 'yaw', 'health',
+                           'kills', 'deaths', 'assists', 'killPoints', 'activeStreak', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(matchId) && isValidId(playerId) && request.auth.uid == playerId;
+      }
+    }
+  }
+}

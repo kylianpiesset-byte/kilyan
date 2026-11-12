@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "PlayerProfile": {
+      "title": "PlayerProfile",
+      "description": "Authenticated Strike Ops player career profile, currencies, loadout, and inventory.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the player." },
+        "callsign": { "type": "string", "description": "Player tactical callsign (3-24 chars)." },
+        "level": { "type": "integer", "description": "Current player rank level." },
+        "xp": { "type": "integer", "description": "Accumulated experience points." },
+        "credits": { "type": "integer", "description": "Free virtual currency (CR) earned by playing." },
+        "strikePoints": { "type": "integer", "description": "Premium virtual currency (SP) for bundles and Battle Pass." },
+        "kills": { "type": "integer", "description": "Total career eliminations." },
+        "deaths": { "type": "integer", "description": "Total career deaths." },
+        "assists": { "type": "integer", "description": "Total career assists." },
+        "wins": { "type": "integer", "description": "Total career match victories." },
+        "matchesPlayed": { "type": "integer", "description": "Total matches completed." },
+        "scorestreaksCalled": { "type": "integer", "description": "Total Scorestreaks deployed." },
+        "ownedItemIds": { "type": "array", "description": "Unlocked weapon skins, operator outfits, and bundles (max 100)." },
+        "claimedPassTiers": { "type": "array", "description": "Battle Pass tier indices already claimed (max 50)." },
+        "equippedPrimaryId": { "type": "string", "description": "Currently equipped primary weapon ID." },
+        "equippedPrimarySkinId": { "type": "string", "description": "Currently equipped primary weapon skin ID." },
+        "equippedOperatorSkinId": { "type": "string", "description": "Currently equipped operator outfit ID." },
+        "battlePassPremium": { "type": "boolean", "description": "Whether the premium Battle Pass track is unlocked." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on last update." }
+      },
+      "required": [
+        "userId", "callsign", "level", "xp", "credits", "strikePoints",
+        "kills", "deaths", "assists", "wins", "matchesPlayed", "scorestreaksCalled",
+        "ownedItemIds", "claimedPassTiers", "equippedPrimaryId",
+        "equippedPrimarySkinId", "equippedOperatorSkinId", "battlePassPremium",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "SquadLobby": {
+      "title": "SquadLobby",
+      "description": "Pre-match multiplayer squad lobby with invite code and ready states.",
+      "type": "object",
+      "properties": {
+        "hostId": { "type": "string", "description": "UID of the squad leader." },
+        "lobbyCode": { "type": "string", "description": "6-character uppercase invite code." },
+        "mode": { "type": "string", "enum": ["tdm", "domination"], "description": "Selected multiplayer mode." },
+        "status": { "type": "string", "enum": ["waiting", "in_match", "closed"], "description": "Lobby lifecycle state." },
+        "activeMatchId": { "type": "string", "description": "Active match ID once launched, or empty string." },
+        "memberUids": { "type": "array", "description": "Squad member UIDs (max 10)." },
+        "memberRoster": { "type": "array", "description": "Serialized roster entries (max 10)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on last update." }
+      },
+      "required": [
+        "hostId", "lobbyCode", "mode", "status", "activeMatchId",
+        "memberUids", "memberRoster", "createdAt", "updatedAt"
+      ]
+    },
+    "MultiplayerMatch": {
+      "title": "MultiplayerMatch",
+      "description": "Active or finished multiplayer match state synchronized across participants.",
+      "type": "object",
+      "properties": {
+        "hostId": { "type": "string", "description": "Match host UID." },
+        "mode": { "type": "string", "enum": ["tdm", "domination"], "description": "Game mode." },
+        "status": { "type": "string", "enum": ["active", "finished"], "description": "Match lifecycle status." },
+        "alphaScore": { "type": "integer", "description": "Alpha team score." },
+        "bravoScore": { "type": "integer", "description": "Bravo team score." },
+        "participantUids": { "type": "array", "description": "Participating player UIDs (max 10)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on last update." }
+      },
+      "required": [
+        "hostId", "mode", "status", "alphaScore", "bravoScore",
+        "participantUids", "createdAt", "updatedAt"
+      ]
+    },
+    "MatchPlayerState": {
+      "title": "MatchPlayerState",
+      "description": "Real-time player transform, health, and kill-point state inside a match.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Player UID." },
+        "callsign": { "type": "string", "description": "Player callsign." },
+        "team": { "type": "string", "enum": ["alpha", "bravo"], "description": "Assigned team." },
+        "x": { "type": "number", "description": "World X coordinate." },
+        "y": { "type": "number", "description": "World Y coordinate." },
+        "yaw": { "type": "number", "description": "Camera yaw angle in radians." },
+        "health": { "type": "integer", "description": "Current HP (0-100)." },
+        "kills": { "type": "integer", "description": "Match kills." },
+        "deaths": { "type": "integer", "description": "Match deaths." },
+        "assists": { "type": "integer", "description": "Match assists." },
+        "killPoints": { "type": "integer", "description": "Current Scorestreak points." },
+        "activeStreak": { "type": "string", "description": "Currently deployed Scorestreak ID or empty." },
+        "participantUids": { "type": "array", "description": "Denormalized match participant UIDs." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on last update." }
+      },
+      "required": [
+        "userId", "callsign", "team", "x", "y", "yaw", "health",
+        "kills", "deaths", "assists", "killPoints", "activeStreak",
+        "participantUids", "createdAt", "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/PlayerProfile" },
+      "description": "Owner-isolated player profile, inventory, currencies, and stats."
+    },
+    "/lobbies/{lobbyId}": {
+      "schema": { "$ref": "#/entities/SquadLobby" },
+      "description": "Pre-game squad lobbies with invite codes and ready tracking."
+    },
+    "/matches/{matchId}": {
+      "schema": { "$ref": "#/entities/MultiplayerMatch" },
+      "description": "Real-time multiplayer match metadata and team scores."
+    },
+    "/matches/{matchId}/players/{playerId}": {
+      "schema": { "$ref": "#/entities/MatchPlayerState" },
+      "description": "Real-time per-player position, health, and Scorestreak state."
+    }
+  }
+}
